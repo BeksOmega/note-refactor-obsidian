@@ -66,8 +66,14 @@ export default class NRDoc {
 
     selectedContent(doc:Editor): string[] {
       const selectedText = doc.getSelection()
-      const trimmedContent = selectedText.trim();
-      return trimmedContent.split('\n')
+      // Splitting by newline from the start to preserve original indentation.
+      // trim() might remove intentional leading/trailing empty lines if not careful,
+      // but for selectedContent, usually we want the lines that have actual content.
+      // If selection is empty, selectedText is '', selectedText.split('\n') is [''].
+      // If selection has content, .trim() is good to remove accidental whitespace around the block.
+      const trimmedSelection = selectedText.trim();
+      if (trimmedSelection === '') return [];
+      return trimmedSelection.split('\n');
     }
   
     noteRemainder(doc:Editor): string[] {
@@ -76,6 +82,7 @@ export default class NRDoc {
       const endPosition = doc.offsetToPos(doc.getValue().length);
       const content = doc.getRange(currentLine, endPosition);
       const trimmedContent = content.trim();
+      if (trimmedContent === '') return [];
       return trimmedContent.split('\n');
     }
 
@@ -89,16 +96,13 @@ export default class NRDoc {
         if(line.startsWith(heading)){
           if(headingMatch.length > 0) {
             matches.push(headingMatch);
-            headingMatch = [];
-            headingMatch.push(line);
-          } else {
-            headingMatch.push(line);
           }
+          headingMatch = [line]; // Start new match
         } else if(headingMatch.length > 0 && !line.startsWith(parentHeading)  ){
           headingMatch.push(line);
-        } else if(headingMatch.length > 0) {
+        } else if(headingMatch.length > 0) { // Line is a parent heading or unrelated, and we have a match
           matches.push(headingMatch);
-          headingMatch = [];
+          headingMatch = []; // Reset
         }
         //Making sure the last headingMatch array is added to the matches
         if(i === content.length - 1 && headingMatch.length > 0){
@@ -107,17 +111,72 @@ export default class NRDoc {
       });
       return matches;
     }
+
+    private getIndentation(line: string): number {
+      let count = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === ' ') {
+          count++;
+        } else {
+          break;
+        }
+      }
+      return count;
+    }
   
+    splitSelectedBulletPoints(selectedLines: string[], bulletPointRegex: RegExp): string[][] {
+      const notes: string[][] = [];
+      let currentNote: string[] = [];
+      let baseIndentation: number = -1;
+
+      for (const line of selectedLines) {
+        if (bulletPointRegex.test(line)) {
+          const currentIndentation = this.getIndentation(line);
+
+          if (baseIndentation === -1) {
+            baseIndentation = currentIndentation;
+          }
+
+          if (currentIndentation < baseIndentation) { // New list, less indented
+            if (currentNote.length > 0) {
+              notes.push([...currentNote]);
+            }
+            currentNote = [line];
+            baseIndentation = currentIndentation; // Reset base indentation
+          } else if (currentIndentation === baseIndentation) { // New item at same primary level
+            if (currentNote.length > 0) {
+              notes.push([...currentNote]);
+            }
+            currentNote = [line];
+          } else { // currentIndentation > baseIndentation (sub-item)
+            if (currentNote.length > 0) { // Must belong to an existing note
+              currentNote.push(line);
+            }
+            // If currentNote is empty and this is a sub-item, it's ignored if no baseIndentation has been set.
+            // Or, if baseIndentation is set, it implies it's a sub-item of a non-existent prior base-level item.
+            // This case might need refinement if lists can validly start with deeper indentations
+            // without a preceding base level item within the selection.
+            // For now, this logic correctly attaches to an active currentNote.
+          }
+        } else { // Not a bullet point line (continuation text)
+          if (currentNote.length > 0) {
+            currentNote.push(line);
+          }
+          // If currentNote is empty, this non-bullet line is ignored (e.g. leading non-bullet lines in selection)
+        }
+      }
+
+      if (currentNote.length > 0) {
+        notes.push([...currentNote]);
+      }
+      return notes;
+    }
     
     noteContent(firstLine:string, contentArr:string[], contentOnly?:boolean): string {
       if(this.settings.includeFirstLineAsNoteHeading){
-        //Replaces any non-word characters whitespace leading the first line to enforce consistent heading format from setting
         const headingBaseline = firstLine.replace(HEADING_REGEX, '');
-        //Adds formatted heading into content array as first item. 
-        //Trimming allows for an empty heading format. 
         contentArr.unshift(`${this.settings.headingFormat} ${headingBaseline}`.trim());
       } else if(!this.settings.excludeFirstLineInNote || contentOnly){
-        //Adds first line back into content if it is not to be included as a header or if the command is content only
         contentArr.unshift(firstLine);
       }
       if(this.settings.normalizeHeaderLevels){
