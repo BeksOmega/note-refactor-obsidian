@@ -113,59 +113,62 @@ export default class NRDoc {
     }
 
     private getIndentation(line: string): number {
-      let count = 0;
-      for (let i = 0; i < line.length; i++) {
-        if (line[i] === ' ') {
-          count++;
-        } else {
-          break;
-        }
-      }
-      return count;
+      const match = line.match(/^(\s*)/);
+      // If match is null (shouldn't happen with this regex unless line is null/undefined, which TS should prevent)
+      // or if match[1] is undefined, return 0. Otherwise, return the length of the captured spaces.
+      return match && match[1] ? match[1].length : 0;
     }
   
     splitSelectedBulletPoints(selectedLines: string[], bulletPointRegex: RegExp): string[][] {
       const notes: string[][] = [];
-      let currentNote: string[] = [];
-      let baseIndentation: number = -1;
-
-      for (const line of selectedLines) {
-        if (bulletPointRegex.test(line)) {
-          const currentIndentation = this.getIndentation(line);
-
-          if (baseIndentation === -1) {
-            baseIndentation = currentIndentation;
-          }
-
-          if (currentIndentation < baseIndentation) { // New list, less indented
-            if (currentNote.length > 0) {
-              notes.push([...currentNote]);
-            }
-            currentNote = [line];
-            baseIndentation = currentIndentation; // Reset base indentation
-          } else if (currentIndentation === baseIndentation) { // New item at same primary level
-            if (currentNote.length > 0) {
-              notes.push([...currentNote]);
-            }
-            currentNote = [line];
-          } else { // currentIndentation > baseIndentation (sub-item)
-            if (currentNote.length > 0) { // Must belong to an existing note
-              currentNote.push(line);
-            }
-            // If currentNote is empty and this is a sub-item, it's ignored if no baseIndentation has been set.
-            // Or, if baseIndentation is set, it implies it's a sub-item of a non-existent prior base-level item.
-            // This case might need refinement if lists can validly start with deeper indentations
-            // without a preceding base level item within the selection.
-            // For now, this logic correctly attaches to an active currentNote.
-          }
-        } else { // Not a bullet point line (continuation text)
-          if (currentNote.length > 0) {
-            currentNote.push(line);
-          }
-          // If currentNote is empty, this non-bullet line is ignored (e.g. leading non-bullet lines in selection)
-        }
+      if (selectedLines.length === 0) {
+        return notes;
       }
 
+      // Map selected lines to objects containing line, index, indentation, and whether it's a bullet
+      // Filter out lines that are not bullet points for determining minIndentation
+      const selectedBulletPointsInfo = selectedLines
+        .map((line, index) => ({ // Keep original index for potential later use if needed
+          line,
+          originalIndex: index, // Keep original index from selectedLines
+          indentation: this.getIndentation(line),
+          isBullet: bulletPointRegex.test(line),
+        }))
+        .filter(item => item.isBullet);
+
+      // If no bullet points are selected, return empty notes
+      if (selectedBulletPointsInfo.length === 0) {
+        return notes;
+      }
+
+      // Determine the minimum indentation among selected bullet points
+      const minIndentation = Math.min(...selectedBulletPointsInfo.map(item => item.indentation));
+
+      let currentNote: string[] = [];
+      for (let i = 0; i < selectedLines.length; i++) {
+        const line = selectedLines[i];
+        const isBullet = bulletPointRegex.test(line);
+        const currentIndentation = this.getIndentation(line);
+
+        if (isBullet && currentIndentation === minIndentation) {
+          // This is a highest-level selected bullet, start of a new note
+          if (currentNote.length > 0) {
+            notes.push([...currentNote]); // Save the previous note
+          }
+          currentNote = [line]; // Start a new note
+        } else if (currentNote.length > 0) {
+          // This line is either a sub-bullet or a continuation line.
+          // It should only be added if currentNote has been initialized by a minIndentation bullet.
+          // We also need to ensure this line was actually part of the user's *selection*.
+          // The loop is already iterating through `selectedLines`, so all lines considered are selected.
+          currentNote.push(line);
+        }
+        // Lines before the first minIndentation bullet that are not bullets themselves,
+        // or bullets that are more indented than any minIndentation bullet (not possible due to minIndentation logic),
+        // will be correctly ignored as currentNote would be empty.
+      }
+
+      // Add the last accumulated note if it exists
       if (currentNote.length > 0) {
         notes.push([...currentNote]);
       }
