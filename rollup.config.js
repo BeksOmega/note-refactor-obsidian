@@ -7,7 +7,7 @@ const TEST_VAULT = 'test-vault/.obsidian/plugins/note-refactor-obsidian';
 export default {
   input: 'src/main.ts',
   output: {
-    dir: './',
+    dir: '/home/beka/Dropbox/Beka/Nellie/.obsidian/plugins/note-refactor-obsidian',
     sourcemap: 'inline',
     format: 'cjs',
     exports: 'default'

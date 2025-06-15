@@ -34,7 +34,7 @@ export default class NoteRefactor extends Plugin {
     console.log("Loading Note Refactor plugin");
     this.settings = Object.assign(
       new NoteRefactorSettings(),
-      await this.loadData(),
+      await this.loadData()
     );
     this.momentDateRegex = new MomentDateRegex();
     this.vault = this.app.vault;
@@ -48,7 +48,7 @@ export default class NoteRefactor extends Plugin {
       name: "Extract selection to new note - first line as file name",
       callback: () =>
         this.editModeGuard(
-          async () => await this.extractSelectionFirstLine("replace-selection"),
+          async () => await this.extractSelectionFirstLine("replace-selection")
         ),
       hotkeys: [
         {
@@ -63,7 +63,7 @@ export default class NoteRefactor extends Plugin {
       name: "Extract selection to new note - content only",
       callback: () =>
         this.editModeGuard(() =>
-          this.extractSelectionContentOnly("replace-selection"),
+          this.extractSelectionContentOnly("replace-selection")
         ),
       hotkeys: [
         {
@@ -78,7 +78,7 @@ export default class NoteRefactor extends Plugin {
       name: "Extract selection to new note - only prefix as file name",
       callback: () =>
         this.editModeGuard(() =>
-          this.extractSelectionAutogenerate("replace-selection"),
+          this.extractSelectionAutogenerate("replace-selection")
         ),
     });
 
@@ -126,7 +126,7 @@ export default class NoteRefactor extends Plugin {
       name: "Split selected bullet points - prefix as file name",
       callback: () =>
         this.editModeGuard(
-          async () => await this.splitSelectedBulletPointsUsingPrefix(),
+          async () => await this.splitSelectedBulletPointsUsingPrefix()
         ),
     });
 
@@ -135,7 +135,7 @@ export default class NoteRefactor extends Plugin {
       name: "Split selected bullet points - content only",
       callback: () =>
         this.editModeGuard(
-          async () => await this.splitSelectedBulletPointsContentOnly(),
+          async () => await this.splitSelectedBulletPointsContentOnly()
         ),
     });
 
@@ -165,12 +165,12 @@ export default class NoteRefactor extends Plugin {
         mdView,
         editor,
         "replace-selection",
-        true,
+        true
       );
     }
 
     new Notice(
-      `Successfully split ${bulletNotes.length} notes from bullet points.`,
+      `Successfully split ${bulletNotes.length} notes from bullet points.`
     );
   }
 
@@ -186,12 +186,13 @@ export default class NoteRefactor extends Plugin {
     if (!bulletNotes) {
       return;
     }
+    console.log("bulletNotes", bulletNotes);
 
     const basePrefix = this.file.fileNamePrefix();
 
     const dedupedFileNames = this.generatePrefixedFileNames(
       bulletNotes,
-      basePrefix,
+      basePrefix
     );
     if (dedupedFileNames.length === 0) {
       return;
@@ -201,12 +202,12 @@ export default class NoteRefactor extends Plugin {
       mdView,
       bulletNotes,
       dedupedFileNames,
-      false, // isContentOnly for _createNoteFromBulletItem
+      false // isContentOnly for _createNoteFromBulletItem
     );
 
     if (createdCount > 0) {
       new Notice(
-        `Successfully split and created ${createdCount} notes using prefix "${basePrefix}".`,
+        `Successfully split and created ${createdCount} notes using prefix "${basePrefix}".`
       );
     }
   }
@@ -228,7 +229,7 @@ export default class NoteRefactor extends Plugin {
 
     const dedupedFileNames = this.generatePrefixedFileNames(
       bulletNotes,
-      basePrefix,
+      basePrefix
     );
     if (dedupedFileNames.length === 0) {
       return;
@@ -238,18 +239,18 @@ export default class NoteRefactor extends Plugin {
       mdView,
       bulletNotes,
       dedupedFileNames,
-      true, // isContentOnly for _createNoteFromBulletItem
+      true // isContentOnly for _createNoteFromBulletItem
     );
 
     if (createdCount > 0) {
       new Notice(
-        `Successfully split and created ${createdCount} notes (content only) using prefix "${basePrefix}".`,
+        `Successfully split and created ${createdCount} notes (content only) using prefix "${basePrefix}".`
       );
     }
   }
 
   private getValidatedBulletPointSelection(
-    mdView: MarkdownView,
+    mdView: MarkdownView
   ): string[][] | null {
     if (!mdView) {
       new Notice("No active Markdown view provided.");
@@ -265,7 +266,7 @@ export default class NoteRefactor extends Plugin {
 
     const bulletNotes = this.NRDoc.splitSelectedBulletPoints(
       selectedLines,
-      BULLET_POINT_REGEX,
+      BULLET_POINT_REGEX
     );
 
     if (bulletNotes.length === 0) {
@@ -277,7 +278,7 @@ export default class NoteRefactor extends Plugin {
 
   private generatePrefixedFileNames(
     bulletNotes: string[][],
-    basePrefix: string,
+    basePrefix: string
   ): string[] {
     if (!basePrefix && basePrefix !== "") {
       new Notice("File name prefix is not properly configured in settings.");
@@ -289,7 +290,7 @@ export default class NoteRefactor extends Plugin {
       if (basePrefix) {
         if (i > 0) {
           fileNameCandidates.push(
-            this.file.sanitisedFileName(`${basePrefix}-${i + 1}`),
+            this.file.sanitisedFileName(`${basePrefix}-${i + 1}`)
           );
         } else {
           fileNameCandidates.push(this.file.sanitisedFileName(`${basePrefix}`));
@@ -310,7 +311,7 @@ export default class NoteRefactor extends Plugin {
     mdView: MarkdownView,
     bulletNotes: string[][],
     dedupedFileNames: string[],
-    isContentOnly: boolean, // isContentOnly for _createNoteFromBulletItem
+    isContentOnly: boolean // isContentOnly for _createNoteFromBulletItem
   ): Promise<number> {
     let createdCount = 0;
     const editor = mdView.editor;
@@ -322,7 +323,7 @@ export default class NoteRefactor extends Plugin {
         currentFilename,
         noteLines,
         mdView,
-        isContentOnly,
+        isContentOnly
       );
 
       if (filePath && this.settings.openNewNote) {
@@ -352,11 +353,11 @@ export default class NoteRefactor extends Plugin {
               fileName,
               link,
               filePath,
-              bulletNotes[index].join("\n"),
+              bulletNotes[index].join("\n")
             );
           }
           return "";
-        }),
+        })
       );
 
       const replacementText = createdLinks.filter((link) => link).join("\n");
@@ -371,14 +372,14 @@ export default class NoteRefactor extends Plugin {
     fileName: string,
     noteItemLines: string[],
     mdView: MarkdownView,
-    isContentOnly: boolean,
+    isContentOnly: boolean
   ): Promise<string | null> {
     const header = noteItemLines[0] || "";
     const contentArr = noteItemLines.slice(1);
     const originalNote = this.NRDoc.noteContent(
       header,
       contentArr,
-      isContentOnly,
+      isContentOnly
     );
     let noteContent = originalNote;
 
@@ -397,7 +398,7 @@ export default class NoteRefactor extends Plugin {
           mdView.file,
           "",
           "",
-          "",
+          ""
         );
         const newNoteLink = await this.NRDoc.markdownLink(filePath);
         noteContent = this.NRDoc.templatedContent(
@@ -408,7 +409,7 @@ export default class NoteRefactor extends Plugin {
           fileName,
           newNoteLink,
           filePath,
-          noteContent,
+          noteContent
         );
       }
 
@@ -417,7 +418,7 @@ export default class NoteRefactor extends Plugin {
     } catch (error) {
       console.error(
         `Error creating note from bullet item "${fileName}":`,
-        error,
+        error
       );
       new Notice(`Error creating note: ${fileName}`);
       return null;
@@ -450,7 +451,7 @@ export default class NoteRefactor extends Plugin {
         mdView,
         doc,
         "replace-headings",
-        true,
+        true
       );
     }
   }
@@ -476,7 +477,7 @@ export default class NoteRefactor extends Plugin {
       mdView,
       doc,
       mode,
-      false,
+      false
     );
   }
 
@@ -500,7 +501,7 @@ export default class NoteRefactor extends Plugin {
       mdView,
       doc,
       mode,
-      true,
+      true
     );
   }
 
@@ -509,7 +510,7 @@ export default class NoteRefactor extends Plugin {
     mdView: MarkdownView,
     doc: Editor,
     mode: ReplaceMode,
-    isMultiple: boolean,
+    isMultiple: boolean
   ) {
     const header = selectedContent[0] || "";
     const contentArr = selectedContent.slice(1);
@@ -527,7 +528,7 @@ export default class NoteRefactor extends Plugin {
         mdView.file,
         "",
         "",
-        "",
+        ""
       );
       const newNoteLink = await this.NRDoc.markdownLink(filePath);
       note = this.NRDoc.templatedContent(
@@ -538,7 +539,7 @@ export default class NoteRefactor extends Plugin {
         fileName,
         newNoteLink,
         filePath,
-        note,
+        note
       );
     }
 
@@ -550,7 +551,7 @@ export default class NoteRefactor extends Plugin {
       mdView.file,
       note,
       originalNote,
-      mode,
+      mode
     );
     if (!isMultiple && this.settings.openNewNote) {
       const leaf = this.app.workspace.getLeaf("split", "vertical");
@@ -567,7 +568,7 @@ export default class NoteRefactor extends Plugin {
     mdView: MarkdownView,
     doc: Editor,
     mode: ReplaceMode,
-    isMultiple: boolean,
+    isMultiple: boolean
   ) {
     const originalHeader = selectedContent[0] || "";
     const contentArr = selectedContent.slice(1);
@@ -585,7 +586,7 @@ export default class NoteRefactor extends Plugin {
         mdView.file,
         "",
         "",
-        "",
+        ""
       );
       const newNoteLink = await this.NRDoc.markdownLink(filePath);
       note = this.NRDoc.templatedContent(
@@ -596,7 +597,7 @@ export default class NoteRefactor extends Plugin {
         fileName,
         newNoteLink,
         filePath,
-        note,
+        note
       );
     }
 
@@ -608,7 +609,7 @@ export default class NoteRefactor extends Plugin {
       mdView.file,
       note,
       originalNote,
-      mode,
+      mode
     );
     if (!isMultiple && this.settings.openNewNote) {
       const leaf = this.app.workspace.getLeaf("split", "vertical");
@@ -649,7 +650,7 @@ export default class NoteRefactor extends Plugin {
       this.obsFile,
       note,
       doc,
-      mode,
+      mode
     );
     new NoteRefactorModal(this.app, modalCreation).open();
   }
